@@ -59,8 +59,8 @@
 
         let isOutsideOfDatabaseHours = true;
         const todayInUTC = moment().tz("Etc/UTC").format('YYYY-MM-DD');
-        const migrationCopyStart = moment.tz(`${todayInUTC} 06:45`, "Etc/UTC");
-        const migrationCopyEnd = moment.tz(`${todayInUTC} 09:00`, "Etc/UTC");
+        const migrationCopyStart = moment.tz(`${todayInUTC} 05:45`, "Etc/UTC");
+        const migrationCopyEnd = moment.tz(`${todayInUTC} 08:00`, "Etc/UTC");
 
         if (now.isAfter(migrationCopyStart) && now.isBefore(migrationCopyEnd)) {
             isOutsideOfDatabaseHours = false;
