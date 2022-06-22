@@ -31,7 +31,7 @@
     <div class="content">
         <h2 class="question">Can I Deploy a Migration to Chuck Right Now?</h2>
         <h1 class="answer" id="container"></h1>
-        <div>You must deploy outside of these times: <strong>9AM-9PM EST and 5:45-8AM UTC</strong>. This is <strong><span id="local-times"></span></strong> in your local time.</div>
+        <div>You must deploy outside of these times: <strong>9AM-9PM EST and 5:45-10:30AM UTC</strong>. This is <strong><span id="local-times"></span></strong> in your local time.</div>
         <br />
         <div><strong>Time in EST</strong>: <span id="time-in-est"></span></div>
         <div><strong>Time in UTC</strong>: <span id="time-in-utc"></span></div>
@@ -60,7 +60,7 @@
         let isOutsideOfDatabaseHours = true;
         const todayInUTC = moment().tz("Etc/UTC").format('YYYY-MM-DD');
         const migrationCopyStart = moment.tz(`${todayInUTC} 05:45`, "Etc/UTC");
-        const migrationCopyEnd = moment.tz(`${todayInUTC} 08:00`, "Etc/UTC");
+        const migrationCopyEnd = moment.tz(`${todayInUTC} 10:30`, "Etc/UTC");
 
         if (now.isAfter(migrationCopyStart) && now.isBefore(migrationCopyEnd)) {
             isOutsideOfDatabaseHours = false;
