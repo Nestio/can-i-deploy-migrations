@@ -42,51 +42,81 @@
         const NEW_YORK_DATA = "America/New_York|EST EDT EWT EPT|50 40 40 40|01010101010101010101010101010101010101010101010102301010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010|-261t0 1nX0 11B0 1nX0 11B0 1qL0 1a10 11z0 1qN0 WL0 1qN0 11z0 1o10 11z0 1o10 11z0 1o10 11z0 1o10 11z0 1qN0 11z0 1o10 11z0 1o10 11z0 1o10 11z0 1o10 11z0 1qN0 WL0 1qN0 11z0 1o10 11z0 1o10 11z0 1o10 11z0 1o10 11z0 1qN0 WL0 1qN0 11z0 1o10 11z0 RB0 8x40 iv0 1o10 11z0 1o10 11z0 1o10 11z0 1o10 11z0 1qN0 WL0 1qN0 11z0 1o10 11z0 1o10 11z0 1o10 11z0 1o10 1fz0 1cN0 1cL0 1cN0 1cL0 1cN0 1cL0 1cN0 1cL0 1cN0 1fz0 1cN0 1cL0 1cN0 1cL0 1cN0 1cL0 1cN0 1cL0 1cN0 1fz0 1a10 1fz0 1cN0 1cL0 1cN0 1cL0 1cN0 1cL0 1cN0 1cL0 1cN0 1fz0 1cN0 1cL0 1cN0 1cL0 s10 1Vz0 LB0 1BX0 1cN0 1fz0 1a10 1fz0 1cN0 1cL0 1cN0 1cL0 1cN0 1cL0 1cN0 1cL0 1cN0 1fz0 1a10 1fz0 1cN0 1cL0 1cN0 1cL0 1cN0 1cL0 14p0 1lb0 14p0 1nX0 11B0 1nX0 11B0 1nX0 14p0 1lb0 14p0 1lb0 14p0 1nX0 11B0 1nX0 11B0 1nX0 14p0 1lb0 14p0 1lb0 14p0 1lb0 14p0 1nX0 11B0 1nX0 11B0 1nX0 14p0 1lb0 14p0 1lb0 14p0 1nX0 11B0 1nX0 11B0 1nX0 Rd0 1zb0 Op0 1zb0 Op0 1zb0 Rd0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Rd0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Rd0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Rd0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Rd0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0|21e6";
         const UTC_DATA = "Etc/UTC|UTC|0|0||";
 
-        moment.tz.add([
-            NEW_YORK_DATA,
-            UTC_DATA
-        ]);
+        moment.tz.add([NEW_YORK_DATA, UTC_DATA]);
 
-        let isOutsideOfWorkingHours = true;
-        const now = moment();
-        const todayInNewYork = moment().tz("America/New_York").format('YYYY-MM-DD');
-        const workingHoursStart = moment.tz(`${todayInNewYork} 09:00`, "America/New_York");
-        const workingHoursEnd = moment.tz(`${todayInNewYork} 21:00`, "America/New_York");
+        // Function to fetch time ranges and update deployment status
+        async function fetchTimeRangesAndUpdateStatus() {
+            try {
+                const timeRanges = await fetchTimeRanges();
 
-        if (now.isAfter(workingHoursStart) && now.isBefore(workingHoursEnd)) {
-            isOutsideOfWorkingHours = false;
+                // Convert time ranges to moment objects
+                const todayInNewYork = moment().tz("America/New_York").format('YYYY-MM-DD');
+                const workingHoursStart = moment.tz(`${todayInNewYork} ${moment(timeRanges[0].start, "h:mm A EST").format("HH:mm")}`, "America/New_York");
+                const workingHoursEnd = moment.tz(`${todayInNewYork} ${moment(timeRanges[0].end, "h:mm A EST").format("HH:mm")}`, "America/New_York");
+
+                const todayInUTC = moment().tz("Etc/UTC").format('YYYY-MM-DD');
+                const migrationCopyStart = moment.tz(`${todayInUTC} ${moment(timeRanges[1].start, "h:mm A EST").tz("Etc/UTC").format("HH:mm")}`, "Etc/UTC");
+                const migrationCopyEnd = moment.tz(`${todayInUTC} ${moment(timeRanges[1].end, "h:mm A EST").tz("Etc/UTC").format("HH:mm")}`, "Etc/UTC");
+
+                // Determine if current time is outside of working hours and migration copy hours
+                let isOutsideOfWorkingHours = !moment().isBetween(workingHoursStart, workingHoursEnd);
+                let isOutsideOfDatabaseHours = !moment().isBetween(migrationCopyStart, migrationCopyEnd);
+
+                const canDeploy = isOutsideOfWorkingHours && isOutsideOfDatabaseHours;
+                const text = canDeploy ? 'Yes' : 'No';
+
+                document.getElementById('container').innerText = text;
+                document.getElementById('container').classList.add(canDeploy ? 'good' : 'bad');
+
+                document.getElementById('time-in-est').innerText = moment().tz("America/New_York").format('hh:mm A');
+                document.getElementById('time-in-est').classList.add(isOutsideOfWorkingHours ? 'good' : 'bad');
+
+                document.getElementById('time-in-utc').innerText = moment().tz("Etc/UTC").format('hh:mm A');
+                document.getElementById('time-in-utc').classList.add(isOutsideOfDatabaseHours ? 'good' : 'bad');
+
+                updateLocalTimesDisplay(workingHoursStart, workingHoursEnd, migrationCopyStart, migrationCopyEnd);
+            } catch (error) {
+                console.error("Failed to fetch times and update:", error);
+            }
         }
 
-        let isOutsideOfDatabaseHours = true;
-        const todayInUTC = moment().tz("Etc/UTC").format('YYYY-MM-DD');
-        const migrationCopyStart = moment.tz(`${todayInUTC} 05:45`, "Etc/UTC");
-        const migrationCopyEnd = moment.tz(`${todayInUTC} 10:30`, "Etc/UTC");
-
-        if (now.isAfter(migrationCopyStart) && now.isBefore(migrationCopyEnd)) {
-            isOutsideOfDatabaseHours = false;
+        const TIME_RANGES_URL = "https://s3.amazonaws.com/funnel-public-config/migrations-window.json";
+        // Fetches restricted time ranges from public config bucket that is also utilized by
+        // build process to bounce migrations out during restricted windows.
+        async function fetchTimeRanges() {
+            // Expected in format:
+            // {
+            //    "time_ranges": [
+            //        {
+            //           "start": "9:00 AM EST",
+            //           "end": "9:00 PM EST"
+            //        },
+            //        {
+            //           "start": "1:45 AM EST",
+            //           "end": "5:30 AM EST"
+            //        }
+            //    ]
+            // }
+            const response = await fetch(TIME_RANGES_URL);
+            const data = await response.json();
+            return data.time_ranges;
         }
 
-        const canDeploy = isOutsideOfWorkingHours && isOutsideOfDatabaseHours;
-        const text = canDeploy ? 'Yes' : 'No';
+        // Update 'local times' UI element with local time ranges
+        function updateLocalTimesDisplay(workingHoursStart, workingHoursEnd, migrationCopyStart, migrationCopyEnd) {
+            const offset = parseInt(moment().format('Z').split(':')[0]);
+            const localWorkingHoursStart = moment(workingHoursStart).tz('Etc/Utc').add('hours', offset).format('hh:mm A');
+            const localWorkingHoursEnd = moment(workingHoursEnd).tz('Etc/Utc').add('hours', offset).format('hh:mm A');
 
-        document.getElementById('container').innerText = text;
-        document.getElementById('container').classList.add(canDeploy ? 'good' : 'bad');
+            const localMigrationStart = moment(migrationCopyStart).tz('Etc/Utc').add('hours', offset).format('hh:mm A');
+            const localMigrationEnd = moment(migrationCopyEnd).tz('Etc/Utc').add('hours', offset).format('hh:mm A');
 
-        document.getElementById('time-in-est').innerText = moment().tz("America/New_York").format('hh:mm A');
-        document.getElementById('time-in-est').classList.add(isOutsideOfWorkingHours ? 'good' : 'bad');
+            const localHours = `${localWorkingHoursStart} - ${localWorkingHoursEnd} and ${localMigrationStart} - ${localMigrationEnd}`;
+            document.getElementById('local-times').innerText = localHours;
+        }
 
-        document.getElementById('time-in-utc').innerText = moment().tz("Etc/UTC").format('hh:mm A');
-        document.getElementById('time-in-utc').classList.add(isOutsideOfDatabaseHours ? 'good' : 'bad');
-
-        const offset = parseInt(moment().format('Z').split(':')[0]);
-        const localWorkingHoursStart = moment(workingHoursStart).tz('Etc/Utc').add('hours', offset).format('hh:mm A');
-        const localWorkingHoursEnd = moment(workingHoursEnd).tz('Etc/Utc').add('hours', offset).format('hh:mm A');
-
-        const localMigrationStart = moment(migrationCopyStart).tz('Etc/Utc').add('hours', offset).format('hh:mm A');
-        const localMigrationEnd = moment(migrationCopyEnd).tz('Etc/Utc').add('hours', offset).format('hh:mm A');
-
-        const localHours = `${localWorkingHoursStart} - ${localWorkingHoursEnd} and ${localMigrationStart} - ${localMigrationEnd}`;
-        document.getElementById('local-times').innerText = localHours;
+        // Call to fetch time ranges and update status on page load
+        fetchTimeRangesAndUpdateStatus();
     </script>
 </body>
 </html>
