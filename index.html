@@ -102,7 +102,7 @@
             return data.time_ranges;
         }
 
-        // Update 'local times' UI element with local time ranges
+        // Update "local times" UI element with local time ranges
         function updateLocalTimesDisplay(workingHoursStart, workingHoursEnd, migrationCopyStart, migrationCopyEnd) {
             const offset = parseInt(moment().format('Z').split(':')[0]);
             const localWorkingHoursStart = moment(workingHoursStart).tz('Etc/Utc').add('hours', offset).format('hh:mm A');
