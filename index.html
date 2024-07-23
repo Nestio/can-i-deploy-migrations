@@ -31,7 +31,7 @@
     <div class="content">
         <h2 class="question">Can I Deploy a Migration to Chuck Right Now?</h2>
         <h1 class="answer" id="container"></h1>
-        <div>You must deploy outside of these times: <strong>9AM-9PM EST and 5:45-10:30AM UTC</strong>. This is <strong><span id="local-times"></span></strong> in your local time.</div>
+        <div>You must deploy outside of these times: <strong><span id="file-start-end-1"></span> and <span id="file-start-end-2"></span></strong>. This is <strong><span id="local-times"></span></strong> in your local time.</div>
         <br />
         <div><strong>Time in EST</strong>: <span id="time-in-est"></span></div>
         <div><strong>Time in UTC</strong>: <span id="time-in-utc"></span></div>
@@ -49,14 +49,15 @@
             try {
                 const timeRanges = await fetchTimeRanges();
 
+                updateWindowTimesDisplay(timeRanges);
+
                 // Convert time ranges to moment objects
                 const todayInNewYork = moment().tz("America/New_York").format('YYYY-MM-DD');
                 const workingHoursStart = moment.tz(`${todayInNewYork} ${moment(timeRanges[0].start, "h:mm A EST").format("HH:mm")}`, "America/New_York");
                 const workingHoursEnd = moment.tz(`${todayInNewYork} ${moment(timeRanges[0].end, "h:mm A EST").format("HH:mm")}`, "America/New_York");
 
-                const todayInUTC = moment().tz("Etc/UTC").format('YYYY-MM-DD');
-                const migrationCopyStart = moment.tz(`${todayInUTC} ${moment(timeRanges[1].start, "h:mm A EST").tz("Etc/UTC").format("HH:mm")}`, "Etc/UTC");
-                const migrationCopyEnd = moment.tz(`${todayInUTC} ${moment(timeRanges[1].end, "h:mm A EST").tz("Etc/UTC").format("HH:mm")}`, "Etc/UTC");
+                const migrationCopyStart = moment.tz(`${todayInNewYork} ${moment(timeRanges[1].start, "h:mm A EST").format("HH:mm")}`, "America/New_York");
+                const migrationCopyEnd = moment.tz(`${todayInNewYork} ${moment(timeRanges[1].end, "h:mm A EST").format("HH:mm")}`, "America/New_York");
 
                 // Determine if current time is outside of working hours and migration copy hours
                 let isOutsideOfWorkingHours = !moment().isBetween(workingHoursStart, workingHoursEnd);
@@ -100,6 +101,14 @@
             const response = await fetch(TIME_RANGES_URL);
             const data = await response.json();
             return data.time_ranges;
+        }
+
+        // Update raw file time window UI elements
+        function updateWindowTimesDisplay(timeRanges) {
+            const fileStartEndOne = `${timeRanges[0].start} - ${timeRanges[0].end}`;
+            const fileStartEndTwo = `${timeRanges[1].start} - ${timeRanges[1].end}`;
+            document.getElementById('file-start-end-1').innerText = fileStartEndOne;
+            document.getElementById('file-start-end-2').innerText = fileStartEndTwo;
         }
 
         // Update "local times" UI element with local time ranges
