@@ -31,10 +31,12 @@
     <div class="content">
         <h2 class="question">Can I Deploy a Migration to Chuck Right Now?</h2>
         <h1 class="answer" id="container"></h1>
-        <div>You must deploy outside of these times: <strong><span id="file-start-end-1"></span> and <span id="file-start-end-2"></span></strong>. This is <strong><span id="local-times"></span></strong> in your local time.</div>
+        <div>You must deploy outside of these times: <strong><span id="file-start-end-1"></span> ET and <span id="file-start-end-2"></span> ET</strong>. This is <strong><span id="local-times"></span></strong> in your local time.</div>
+        <br /><br />
+        <div><strong>Your Local Time: <span id="your-local-time"></span></strong></string></div>
         <br />
-        <div><strong>Time in EST</strong>: <span id="time-in-est"></span></div>
-        <div><strong>Time in UTC</strong>: <span id="time-in-utc"></span></div>
+        <div><strong>Outside working hours</strong>: <span id="working-hours"></span></div>
+        <div><strong>Outside db backup hours</strong>: <span id="db-hours"></span></div>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.33/moment-timezone.min.js"></script>
@@ -53,11 +55,11 @@
 
                 // Convert time ranges to moment objects
                 const todayInNewYork = moment().tz("America/New_York").format('YYYY-MM-DD');
-                const workingHoursStart = moment.tz(`${todayInNewYork} ${moment(timeRanges[0].start, "h:mm A EST").format("HH:mm")}`, "America/New_York");
-                const workingHoursEnd = moment.tz(`${todayInNewYork} ${moment(timeRanges[0].end, "h:mm A EST").format("HH:mm")}`, "America/New_York");
+                const workingHoursStart = moment.tz(`${todayInNewYork} ${moment(timeRanges[0].start, "h:mm A").format("HH:mm")}`, "America/New_York");
+                const workingHoursEnd = moment.tz(`${todayInNewYork} ${moment(timeRanges[0].end, "h:mm A").format("HH:mm")}`, "America/New_York");
 
-                const migrationCopyStart = moment.tz(`${todayInNewYork} ${moment(timeRanges[1].start, "h:mm A EST").format("HH:mm")}`, "America/New_York");
-                const migrationCopyEnd = moment.tz(`${todayInNewYork} ${moment(timeRanges[1].end, "h:mm A EST").format("HH:mm")}`, "America/New_York");
+                const migrationCopyStart = moment.tz(`${todayInNewYork} ${moment(timeRanges[1].start, "h:mm A").format("HH:mm")}`, "America/New_York");
+                const migrationCopyEnd = moment.tz(`${todayInNewYork} ${moment(timeRanges[1].end, "h:mm A").format("HH:mm")}`, "America/New_York");
 
                 // Determine if current time is outside of working hours and migration copy hours
                 let isOutsideOfWorkingHours = !moment().isBetween(workingHoursStart, workingHoursEnd);
@@ -69,11 +71,13 @@
                 document.getElementById('container').innerText = text;
                 document.getElementById('container').classList.add(canDeploy ? 'good' : 'bad');
 
-                document.getElementById('time-in-est').innerText = moment().tz("America/New_York").format('hh:mm A');
-                document.getElementById('time-in-est').classList.add(isOutsideOfWorkingHours ? 'good' : 'bad');
+                document.getElementById('your-local-time').innerText = moment().format('hh:mm A');
 
-                document.getElementById('time-in-utc').innerText = moment().tz("Etc/UTC").format('hh:mm A');
-                document.getElementById('time-in-utc').classList.add(isOutsideOfDatabaseHours ? 'good' : 'bad');
+                document.getElementById('working-hours').innerText = isOutsideOfWorkingHours ? 'Yes' : 'No';
+                document.getElementById('working-hours').classList.add(isOutsideOfWorkingHours ? 'good' : 'bad');
+
+                document.getElementById('db-hours').innerText = isOutsideOfDatabaseHours ? 'Yes' : 'No';
+                document.getElementById('db-hours').classList.add(isOutsideOfDatabaseHours ? 'good' : 'bad');
 
                 updateLocalTimesDisplay(workingHoursStart, workingHoursEnd, migrationCopyStart, migrationCopyEnd);
             } catch (error) {
@@ -100,7 +104,17 @@
             // }
             const response = await fetch(TIME_RANGES_URL);
             const data = await response.json();
-            return data.time_ranges;
+
+            // Strip off the 'EST' portion from each time string, as this matches how DevOps
+            // parses these dates in should-deploy.sh. This will eventually change to support
+            // UTC db backup times, but matches the merge-queue logic for now. see:
+            // https://github.com/Nestio/chuck/blob/master/.buildkite/steps/should-deploy.sh
+            const strippedTimeRanges = data.time_ranges.map(range => ({
+                start: range.start.replace(' EST', ''),
+                end: range.end.replace(' EST', '')
+            }));
+
+            return strippedTimeRanges;
         }
 
         // Update raw file time window UI elements
