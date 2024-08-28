@@ -23,8 +23,18 @@
 
     .bad {
         color: red;
-    };
+    }
 
+    .version {
+        position: fixed;
+        bottom: 0;
+        width: 100%;
+        text-align: center;
+        color: lightgray;
+        font-size: 12px;
+        padding: 10px 0;
+        z-index: 1000;
+    }
   </style>
 </head>
 <body>
@@ -33,14 +43,17 @@
         <h1 class="answer" id="container"></h1>
         <div>You must deploy outside of these times: <strong><span id="file-start-end-1"></span> ET and <span id="file-start-end-2"></span> ET</strong>. This is <strong><span id="local-times"></span></strong> in your local time.</div>
         <br /><br />
-        <div><strong>Your Local Time: <span id="your-local-time"></span></strong></string></div>
+        <div><strong>Your Local Time: <span id="your-local-time"></span></strong></div>
         <br />
         <div><strong>Outside working hours</strong>: <span id="working-hours"></span></div>
         <div><strong>Outside db backup hours</strong>: <span id="db-hours"></span></div>
     </div>
+    <div class="version"><strong>Version:</strong> <span id="version"></span></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.33/moment-timezone.min.js"></script>
     <script>
+        const VERSION = "1.0.0";
+
         const NEW_YORK_DATA = "America/New_York|EST EDT EWT EPT|50 40 40 40|01010101010101010101010101010101010101010101010102301010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010|-261t0 1nX0 11B0 1nX0 11B0 1qL0 1a10 11z0 1qN0 WL0 1qN0 11z0 1o10 11z0 1o10 11z0 1o10 11z0 1o10 11z0 1qN0 11z0 1o10 11z0 1o10 11z0 1o10 11z0 1o10 11z0 1qN0 WL0 1qN0 11z0 1o10 11z0 1o10 11z0 1o10 11z0 1o10 11z0 1qN0 WL0 1qN0 11z0 1o10 11z0 RB0 8x40 iv0 1o10 11z0 1o10 11z0 1o10 11z0 1o10 11z0 1qN0 WL0 1qN0 11z0 1o10 11z0 1o10 11z0 1o10 11z0 1o10 1fz0 1cN0 1cL0 1cN0 1cL0 1cN0 1cL0 1cN0 1cL0 1cN0 1fz0 1cN0 1cL0 1cN0 1cL0 1cN0 1cL0 1cN0 1cL0 1cN0 1fz0 1a10 1fz0 1cN0 1cL0 1cN0 1cL0 1cN0 1cL0 1cN0 1cL0 1cN0 1fz0 1cN0 1cL0 1cN0 1cL0 s10 1Vz0 LB0 1BX0 1cN0 1fz0 1a10 1fz0 1cN0 1cL0 1cN0 1cL0 1cN0 1cL0 1cN0 1cL0 1cN0 1fz0 1a10 1fz0 1cN0 1cL0 1cN0 1cL0 1cN0 1cL0 14p0 1lb0 14p0 1nX0 11B0 1nX0 11B0 1nX0 14p0 1lb0 14p0 1lb0 14p0 1nX0 11B0 1nX0 11B0 1nX0 14p0 1lb0 14p0 1lb0 14p0 1lb0 14p0 1nX0 11B0 1nX0 11B0 1nX0 14p0 1lb0 14p0 1lb0 14p0 1nX0 11B0 1nX0 11B0 1nX0 Rd0 1zb0 Op0 1zb0 Op0 1zb0 Rd0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Rd0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Rd0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Rd0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Rd0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0 Op0 1zb0|21e6";
         const UTC_DATA = "Etc/UTC|UTC|0|0||";
 
@@ -51,15 +64,22 @@
             try {
                 const timeRanges = await fetchTimeRanges();
 
-                updateWindowTimesDisplay(timeRanges);
+                // Determine if current time is in EDT or EST
+                const nowInNewYork = moment().tz("America/New_York");
+                const isEDT = nowInNewYork.isDST(); // isDST() returns true if it's daylight saving time (EDT)
+
+                const filterTimeZone = isEDT ? "EST" : "EDT";
+                const filteredTimeRanges = timeRanges.filter(range => range.timezone !== filterTimeZone);
+
+                updateWindowTimesDisplay(filteredTimeRanges);
 
                 // Convert time ranges to moment objects
-                const todayInNewYork = moment().tz("America/New_York").format('YYYY-MM-DD');
-                const workingHoursStart = moment.tz(`${todayInNewYork} ${moment(timeRanges[0].start, "h:mm A").format("HH:mm")}`, "America/New_York");
-                const workingHoursEnd = moment.tz(`${todayInNewYork} ${moment(timeRanges[0].end, "h:mm A").format("HH:mm")}`, "America/New_York");
+                const todayInNewYork = nowInNewYork.format('YYYY-MM-DD');
+                const workingHoursStart = moment.tz(`${todayInNewYork} ${moment(filteredTimeRanges[0].start, "h:mm A").format("HH:mm")}`, "America/New_York");
+                const workingHoursEnd = moment.tz(`${todayInNewYork} ${moment(filteredTimeRanges[0].end, "h:mm A").format("HH:mm")}`, "America/New_York");
 
-                const migrationCopyStart = moment.tz(`${todayInNewYork} ${moment(timeRanges[1].start, "h:mm A").format("HH:mm")}`, "America/New_York");
-                const migrationCopyEnd = moment.tz(`${todayInNewYork} ${moment(timeRanges[1].end, "h:mm A").format("HH:mm")}`, "America/New_York");
+                const migrationCopyStart = moment.tz(`${todayInNewYork} ${moment(filteredTimeRanges[1].start, "h:mm A").format("HH:mm")}`, "America/New_York");
+                const migrationCopyEnd = moment.tz(`${todayInNewYork} ${moment(filteredTimeRanges[1].end, "h:mm A").format("HH:mm")}`, "America/New_York");
 
                 // Determine if current time is outside of working hours and migration copy hours
                 let isOutsideOfWorkingHours = !moment().isBetween(workingHoursStart, workingHoursEnd);
@@ -85,36 +105,36 @@
             }
         }
 
-        const TIME_RANGES_URL = "https://s3.amazonaws.com/funnel-public-config/migrations-window.json";
+        const TIME_RANGES_URL = "https://s3.amazonaws.com/funnel-public-config/migrations-window-v2.json";
         // Fetches restricted time ranges from public config bucket that is also utilized by
         // build process to bounce migrations out during restricted windows.
         async function fetchTimeRanges() {
             // Expected in format:
             // {
-            //    "time_ranges": [
-            //        {
-            //           "start": "9:00 AM EST",
-            //           "end": "9:00 PM EST"
-            //        },
-            //        {
-            //           "start": "1:45 AM EST",
-            //           "end": "5:30 AM EST"
-            //        }
-            //    ]
+            //     "time_ranges": [
+            //         // Working hours
+            //         {
+            //             "start": "9:00 AM",
+            //             "end": "9:00 PM",
+            //             "timezone": "America/New_York"
+            //         },
+            //         // EDT db migration copy hours
+            //         {
+            //             "start": "2:45 AM",
+            //             "end": "6:30 AM",
+            //             "timezone": "EDT"
+            //         },
+            //         // EST db migration copy hours
+            //         {
+            //             "start": "1:45 AM",
+            //             "end": "5:30 AM",
+            //             "timezone": "EST"
+            //         }
+            //     ]
             // }
             const response = await fetch(TIME_RANGES_URL);
             const data = await response.json();
-
-            // Strip off the 'EST' portion from each time string, as this matches how DevOps
-            // parses these dates in should-deploy.sh. This will eventually change to support
-            // UTC db backup times, but matches the merge-queue logic for now. see:
-            // https://github.com/Nestio/chuck/blob/master/.buildkite/steps/should-deploy.sh
-            const strippedTimeRanges = data.time_ranges.map(range => ({
-                start: range.start.replace(' EST', ''),
-                end: range.end.replace(' EST', '')
-            }));
-
-            return strippedTimeRanges;
+            return data.time_ranges;
         }
 
         // Update raw file time window UI elements
@@ -128,11 +148,11 @@
         // Update "local times" UI element with local time ranges
         function updateLocalTimesDisplay(workingHoursStart, workingHoursEnd, migrationCopyStart, migrationCopyEnd) {
             const offset = parseInt(moment().format('Z').split(':')[0]);
-            const localWorkingHoursStart = moment(workingHoursStart).tz('Etc/Utc').add('hours', offset).format('hh:mm A');
-            const localWorkingHoursEnd = moment(workingHoursEnd).tz('Etc/Utc').add('hours', offset).format('hh:mm A');
+            const localWorkingHoursStart = moment(workingHoursStart).tz('Etc/Utc').add('hours', offset).format('h:mm A');
+            const localWorkingHoursEnd = moment(workingHoursEnd).tz('Etc/Utc').add('hours', offset).format('h:mm A');
 
-            const localMigrationStart = moment(migrationCopyStart).tz('Etc/Utc').add('hours', offset).format('hh:mm A');
-            const localMigrationEnd = moment(migrationCopyEnd).tz('Etc/Utc').add('hours', offset).format('hh:mm A');
+            const localMigrationStart = moment(migrationCopyStart).tz('Etc/Utc').add('hours', offset).format('h:mm A');
+            const localMigrationEnd = moment(migrationCopyEnd).tz('Etc/Utc').add('hours', offset).format('h:mm A');
 
             const localHours = `${localWorkingHoursStart} - ${localWorkingHoursEnd} and ${localMigrationStart} - ${localMigrationEnd}`;
             document.getElementById('local-times').innerText = localHours;
@@ -140,6 +160,9 @@
 
         // Call to fetch time ranges and update status on page load
         fetchTimeRangesAndUpdateStatus();
+
+        // Display the version number
+        document.getElementById('version').innerText = VERSION;
     </script>
 </body>
 </html>
