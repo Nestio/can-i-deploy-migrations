@@ -124,7 +124,22 @@
         function updateWindowTimesDisplay(timeRanges) {
             windowsHtml = "You must deploy outside of these windows: <br /><br />";
             for (let i = 0; i < timeRanges.length; i++) {
-                windowsHtml += `<strong>${timeRanges[i].start} - ${timeRanges[i].end} UTC</strong><br />`;
+                // Parse the UTC times
+                let startUTC = moment.utc(timeRanges[i].start, ['h:m a', 'H:m']);
+                let endUTC = moment.utc(timeRanges[i].end, ['h:m a', 'H:m']);
+                
+                // Convert to local time
+                let startLocal = startUTC.clone().local();
+                let endLocal = endUTC.clone().local();
+
+                // Format all times
+                let startUTCFormatted = startUTC.format('h:mm A');
+                let endUTCFormatted = endUTC.format('h:mm A');
+                let startLocalFormatted = startLocal.format('h:mm A');
+                let endLocalFormatted = endLocal.format('h:mm A');
+                
+                // Display both UTC and local time
+                windowsHtml += `<strong>${startUTCFormatted} - ${endUTCFormatted} UTC</strong> (${startLocalFormatted} - ${endLocalFormatted} Local Time)<br />`;
             }
             document.getElementById('windows').innerHTML = windowsHtml;
         }
